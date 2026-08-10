@@ -16,7 +16,10 @@ User → LLM/planner → Decision → Tool call → LLM → Response
    - `GET /orders/{order_id}`
    - `POST /tickets`
 2. **Agent endpoint** `POST /chat` that returns both the final reply **and** the tool-call trace for assertions
-3. **Playwright API tests** that verify tool selection, auth, errors, and prompt injection — not only the text reply
+3. **Playwright TypeScript tests**
+   - UI E2E: `e2e/tests` + fixtures in `e2e/src/fixture.ts`
+   - API: `api/tests` + helpers in `api/helpers.ts`
+4. **Python unit checks** (`tests/test_tools_unit.py`) — AuthZ guards without HTTP
 
 ## Quick start
 
@@ -24,19 +27,56 @@ User → LLM/planner → Decision → Tool call → LLM → Response
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-playwright install
+pip install -r requirements-dev.txt
 cp .env.example .env
 
-# Terminal 1
-python run.py
+npm install
+npx playwright install chromium
+
+# Terminal 1 — prefer local mode for stable tool asserts
+AGENT_MODE=local python run.py
 
 # Terminal 2
-pytest
+npm test              # API + UI
+npm run test:api      # API only (api/tests)
+npm run test:ui       # browser UI only (e2e/tests)
+pytest                # small Python unit checks
 ```
 
-Server defaults to `http://127.0.0.1:8002`.
+### Lint & format
 
-Default mode is `AGENT_MODE=local` — a deterministic planner so CI/demo runs without an OpenAI key.
+```bash
+# Python (Ruff)
+ruff check app tests scripts
+ruff check app tests scripts --fix
+ruff format app tests scripts
+
+# TypeScript
+npm run lint          # ESLint
+npm run lint:fix     # ESLint --fix
+npm run format        # Prettier
+npm run format:check
+npm run typecheck     # tsc --noEmit
+npm run check         # typecheck + lint + format:check
+```
+
+Config files: `pyproject.toml` (Ruff), `eslint.config.js`, `prettier.config.js`, `tsconfig.json`.
+
+### Logs
+Server writes request + tool traces to `data/logs/app.log` (and console).
+
+### Jira on test failure
+When a Playwright test fails, optionally open a Jira bug:
+
+```env
+JIRA_ON_TEST_FAILURE=true
+JIRA_BASE_URL=https://your-domain.atlassian.net
+JIRA_EMAIL=...
+JIRA_API_TOKEN=...
+JIRA_PROJECT_KEY=KAN
+```
+
+Reporter: `reporters/jira-on-failure.ts` (wired in `playwright.config.ts`).
 
 To use a real model:
 

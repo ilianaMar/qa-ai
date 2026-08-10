@@ -1,68 +1,81 @@
-<!DOCTYPE html>
-<html lang="bg">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AI QA Playground</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/styles.css?v=3" />
-</head>
-<body>
-  <div class="page">
-    <header class="top">
-      <div>
-        <p class="brand">AI QA Playground</p>
-        <p class="sub" data-i18n="subtitle">Manual chat + tool-call inspector</p>
-      </div>
-      <div class="meta">
-        <label class="lang-switch">
-          <span data-i18n="language">Language</span>
-          <select id="language">
-            <option value="bg">Български</option>
-            <option value="en">English</option>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI QA Playground</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css?v=3" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="top">
+        <div>
+          <p class="brand" data-testid="brand">AI QA Playground</p>
+          <p class="sub" data-i18n="subtitle">Manual chat + tool-call inspector</p>
+        </div>
+        <div class="meta">
+          <label class="lang-switch">
+            <span data-i18n="language">Language</span>
+            <select id="language" data-testid="language">
+              <option value="en" selected>English</option>
+              <option value="bg">Български</option>
+            </select>
+          </label>
+          <span id="modeBadge" class="badge" data-testid="mode-badge">…</span>
+          <a href="/docs" target="_blank" rel="noreferrer">API docs</a>
+        </div>
+      </header>
+
+      <section class="controls">
+        <label>
+          <span data-i18n="userLabel">Authenticated user</span>
+          <select id="userId" data-testid="user-id">
+            <option value="123">123 — Ana (owner of order 456)</option>
+            <option value="999">999 — Other user (owner of 789)</option>
           </select>
         </label>
-        <span id="modeBadge" class="badge">…</span>
-        <a href="/docs" target="_blank" rel="noreferrer">API docs</a>
-      </div>
-    </header>
+        <label>
+          <span data-i18n="faultLabel">Fault injection</span>
+          <select id="fault" data-testid="fault">
+            <option value="none">none</option>
+            <option value="tool_500">tool_500</option>
+            <option value="fake_tool_response">fake_tool_response</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          id="resetBtn"
+          class="ghost"
+          data-i18n="resetBtn"
+          data-testid="reset-btn"
+        >
+          Reset mock data
+        </button>
+      </section>
 
-    <section class="controls">
-      <label>
-        <span data-i18n="userLabel">Authenticated user</span>
-        <select id="userId">
-          <option value="123">123 — Ana (owner of order 456)</option>
-          <option value="999">999 — Other user (owner of 789)</option>
-        </select>
-      </label>
-      <label>
-        <span data-i18n="faultLabel">Fault injection</span>
-        <select id="fault">
-          <option value="none">none</option>
-          <option value="tool_500">tool_500</option>
-          <option value="fake_tool_response">fake_tool_response</option>
-        </select>
-      </label>
-      <button type="button" id="resetBtn" class="ghost" data-i18n="resetBtn">Reset mock data</button>
-    </section>
+      <section class="scenarios">
+        <p class="label" data-i18n="scenariosLabel">Quick scenarios</p>
+        <div class="chips" id="chips" data-testid="chips"></div>
+      </section>
 
-    <section class="scenarios">
-      <p class="label" data-i18n="scenariosLabel">Quick scenarios</p>
-      <div class="chips" id="chips"></div>
-    </section>
+      <main class="chat-layout">
+        <div id="thread" class="thread" aria-live="polite" data-testid="thread"></div>
 
-    <main class="chat-layout">
-      <div id="thread" class="thread" aria-live="polite"></div>
+        <form id="chatForm" class="composer">
+          <textarea id="message" rows="3" required data-testid="message"></textarea>
+          <button type="submit" id="sendBtn" data-i18n="sendBtn" data-testid="send-btn">
+            Send
+          </button>
+        </form>
+      </main>
+    </div>
 
-      <form id="chatForm" class="composer">
-        <textarea id="message" rows="3" required></textarea>
-        <button type="submit" id="sendBtn" data-i18n="sendBtn">Send</button>
-      </form>
-    </main>
-  </div>
-
-  <script src="/static/app.js?v=3"></script>
-</body>
+    <script src="/static/app.js?v=6"></script>
+  </body>
 </html>

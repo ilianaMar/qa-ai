@@ -132,6 +132,41 @@ def _reply_from_records(
                     phone=record.result["phone"],
                 )
             )
+        elif record.name == "list_orders" and isinstance(record.result, dict):
+            orders = record.result.get("orders") or []
+            if not orders:
+                parts.append(t(lang, "orders_empty"))
+            else:
+                summary = "; ".join(
+                    f"#{o['order_id']} ({status_label(lang, str(o.get('status', '')))})"
+                    for o in orders
+                )
+                parts.append(t(lang, "orders_list", summary=summary))
+        elif record.name == "create_order" and isinstance(record.result, dict):
+            items = record.result.get("items") or []
+            item = items[0]["name"] if items else "item"
+            status = status_label(lang, str(record.result.get("status", "")))
+            parts.append(
+                t(
+                    lang,
+                    "order_created",
+                    order_id=record.result["order_id"],
+                    status=status,
+                    total=record.result.get("total", 0),
+                    item=item,
+                )
+            )
+        elif record.name == "create_user" and isinstance(record.result, dict):
+            parts.append(
+                t(
+                    lang,
+                    "user_created",
+                    user_id=record.result["user_id"],
+                    name=record.result["name"],
+                    email=record.result["email"],
+                    phone=record.result["phone"],
+                )
+            )
         elif record.name == "create_ticket" and isinstance(record.result, dict):
             status = status_label(lang, str(record.result.get("status", "")))
             parts.append(
@@ -143,6 +178,20 @@ def _reply_from_records(
                     issue=record.result["issue"],
                 )
             )
+            jira = record.result.get("jira") or {}
+            if jira.get("key"):
+                parts.append(t(lang, "jira_created", key=jira["key"], url=jira.get("url") or ""))
+            elif record.result.get("jira_error"):
+                parts.append(t(lang, "jira_error", error=record.result["jira_error"]))
+        elif record.name == "create_jira_issue" and isinstance(record.result, dict):
+            parts.append(
+                t(
+                    lang,
+                    "jira_created",
+                    key=record.result.get("key", "?"),
+                    url=record.result.get("url") or "",
+                )
+            )
     return " ".join(parts) if parts else t(lang, "done")
 
 
@@ -151,7 +200,7 @@ def run_local_agent(
     *,
     authenticated_user_id: str,
     fault: QaFault = "none",
-    lang: Lang = "bg",
+    lang: Lang = "en",
 ) -> tuple[str, list[ToolCallRecord]]:
     actions = plan(message, authenticated_user_id, lang=lang)
     records: list[ToolCallRecord] = []
@@ -189,7 +238,7 @@ def run_openai_agent(
     *,
     authenticated_user_id: str,
     fault: QaFault = "none",
-    lang: Lang = "bg",
+    lang: Lang = "en",
 ) -> tuple[str, list[ToolCallRecord]]:
     from openai import OpenAI
 
@@ -290,7 +339,7 @@ def run_agent(
     *,
     authenticated_user_id: str,
     fault: QaFault = "none",
-    lang: Lang = "bg",
+    lang: Lang = "en",
 ) -> tuple[str, list[ToolCallRecord]]:
     settings = get_settings()
     if settings.use_openai:

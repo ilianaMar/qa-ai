@@ -6,7 +6,9 @@ Flow:
 
 Tools:
   GET  /users/{user_id}
+  POST /users
   GET  /orders/{order_id}
+  POST /orders
   POST /tickets
   POST /chat          (agent entrypoint; returns reply + tool_calls for assertions)
 """

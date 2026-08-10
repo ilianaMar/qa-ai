@@ -8,8 +8,17 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.agent.i18n import Lang, system_prompt, t
-from app.api.mock_store import ApiError, create_ticket, get_order, get_user
-
+from app.api.mock_store import (
+    ApiError,
+    create_order,
+    create_ticket,
+    create_user,
+    get_order,
+    get_user,
+    list_orders,
+)
+from app.integrations.jira import JiraError
+from app.integrations.jira import create_issue as jira_create_issue
 
 ORDER_ID_IN_TEXT_RE = re.compile(
     r"(?:order|поръчк\w*)\s*(?:#|№|id|:)?\s*(\d+)|(?<![\w-])(\d{3,})(?![\w-])",
@@ -35,7 +44,7 @@ def _require_owned_order(order_id: str, authenticated_user_id: str) -> dict[str,
 
 
 # Back-compat alias used by tests / imports
-SYSTEM_PROMPT = system_prompt("bg")
+SYSTEM_PROMPT = system_prompt("en")
 
 
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -72,6 +81,24 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "list_orders",
+            "description": (
+                "List all orders for a user_id. "
+                "Use when the user asks for their orders without a specific order_id."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_id": {"type": "string", "description": "Authenticated user id"},
+                },
+                "required": ["user_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "create_ticket",
             "description": (
                 "Create a support ticket for the authenticated user. "
@@ -89,6 +116,97 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     },
                 },
                 "required": ["user_id", "issue"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_user",
+            "description": (
+                "Create a new user in the SQLite database. "
+                "Use when the user asks to register/create a user/profile."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Full name"},
+                    "email": {"type": "string", "description": "Email address"},
+                    "phone": {"type": "string", "description": "Phone number"},
+                    "user_id": {
+                        "type": "string",
+                        "description": "Optional custom user id; auto-generated if omitted",
+                    },
+                },
+                "required": ["name", "email", "phone"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_order",
+            "description": (
+                "Create a new order in the SQLite database for the authenticated user. "
+                "Use when the user asks to create/place an order."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "string",
+                        "description": "Owner user id (must be the authenticated user)",
+                    },
+                    "order_id": {
+                        "type": "string",
+                        "description": "Optional custom order id; auto-generated if omitted",
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "Order status (default pending)",
+                    },
+                    "item_name": {
+                        "type": "string",
+                        "description": "Product/item name for a simple one-line order",
+                    },
+                    "qty": {
+                        "type": "integer",
+                        "description": "Quantity (default 1)",
+                    },
+                    "total": {
+                        "type": "number",
+                        "description": "Order total amount",
+                    },
+                    "carrier": {"type": "string", "description": "Optional carrier"},
+                    "tracking": {"type": "string", "description": "Optional tracking code"},
+                },
+                "required": ["user_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_jira_issue",
+            "description": (
+                "Create a Jira issue linked to support work. "
+                "Use after verifying order/user data from the database when the user wants "
+                "a tracked engineering/support task in Jira."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "summary": {"type": "string", "description": "Short Jira summary"},
+                    "description": {"type": "string", "description": "Issue description"},
+                    "order_id": {
+                        "type": "string",
+                        "description": "Optional related order id from the database",
+                    },
+                },
+                "required": ["summary", "description"],
                 "additionalProperties": False,
             },
         },
@@ -113,7 +231,7 @@ def execute_tool(
     *,
     authenticated_user_id: str,
     fault: QaFault = "none",
-    lang: Lang = "bg",
+    lang: Lang = "en",
 ) -> ToolCallRecord:
     record = ToolCallRecord(name=name, arguments=dict(arguments))
 
@@ -152,6 +270,14 @@ def execute_tool(
                 return record
             record.result = order
 
+        elif name == "list_orders":
+            user_id = str(arguments.get("user_id", "")).strip() or authenticated_user_id
+            if user_id != authenticated_user_id:
+                record.denied = True
+                record.error = t(lang, "deny_list_orders")
+                return record
+            record.result = {"user_id": user_id, "orders": list_orders(user_id)}
+
         elif name == "create_ticket":
             user_id = str(arguments.get("user_id", "")).strip() or authenticated_user_id
             issue = str(arguments.get("issue", "")).strip()
@@ -173,7 +299,74 @@ def execute_tool(
                         record.error = f"{exc.status_code}: {exc.detail}"
                     return record
                 record.arguments["order_id"] = order_id
-            record.result = create_ticket(user_id, issue, order_id=order_id or None)
+            ticket = create_ticket(user_id, issue, order_id=order_id or None)
+            record.result = ticket
+
+        elif name == "create_user":
+            name_v = str(arguments.get("name", "")).strip()
+            email = str(arguments.get("email", "")).strip()
+            phone = str(arguments.get("phone", "")).strip()
+            new_user_id = str(arguments.get("user_id", "")).strip() or None
+            record.result = create_user(
+                name=name_v,
+                email=email,
+                phone=phone,
+                user_id=new_user_id,
+            )
+
+        elif name == "create_order":
+            user_id = str(arguments.get("user_id", "")).strip() or authenticated_user_id
+            if user_id != authenticated_user_id:
+                record.denied = True
+                record.error = t(lang, "deny_create_order")
+                return record
+            order_id = str(arguments.get("order_id", "")).strip() or None
+            status = str(arguments.get("status", "")).strip() or "pending"
+            carrier = str(arguments.get("carrier", "")).strip() or None
+            tracking = str(arguments.get("tracking", "")).strip() or None
+            item_name = str(arguments.get("item_name", "")).strip() or "Custom item"
+            try:
+                qty = int(arguments.get("qty") or 1)
+            except (TypeError, ValueError):
+                qty = 1
+            try:
+                total = float(arguments.get("total") if arguments.get("total") is not None else 0)
+            except (TypeError, ValueError):
+                total = 0.0
+            items = [{"sku": "NEW-01", "name": item_name, "qty": max(qty, 1)}]
+            record.result = create_order(
+                user_id,
+                order_id=order_id,
+                status=status,
+                carrier=carrier,
+                tracking=tracking,
+                items=items,
+                total=total,
+            )
+
+        elif name == "create_jira_issue":
+            summary = str(arguments.get("summary", "")).strip()
+            description = str(arguments.get("description", "")).strip()
+            order_id = str(arguments.get("order_id", "")).strip() or None
+            if not summary or not description:
+                record.error = "summary and description are required"
+                return record
+            if order_id:
+                try:
+                    _require_owned_order(order_id, authenticated_user_id)
+                except ApiError as exc:
+                    record.denied = exc.status_code == 403
+                    record.error = f"{exc.status_code}: {exc.detail}"
+                    return record
+                description = f"{description}\n\nRelated order_id={order_id} (from SQLite DB)."
+            try:
+                record.result = jira_create_issue(
+                    summary=summary,
+                    description=description,
+                    labels=["qa-ai", "agent"],
+                )
+            except JiraError as exc:
+                record.error = str(exc)
 
         else:
             record.error = f"Unknown tool: {name}"

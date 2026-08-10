@@ -1,0 +1,39 @@
+[project]
+name = "qa-ai"
+version = "0.1.0"
+description = "AI QA Playground"
+requires-python = ">=3.11"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["app", "tests", "scripts"]
+extend-exclude = [".venv", "node_modules", "data"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+  "B",   # bugbear
+  "SIM", # simplify
+]
+ignore = [
+  "E501", # line length handled by formatter
+  "SIM102", # nested if often clearer for guard clauses
+  "SIM108", # ternary not always more readable
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E402"]
+"app/main.py" = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
