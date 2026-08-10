@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI QA Playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="top">
+      <div>
+        <p class="brand">AI QA Playground</p>
+        <p class="sub">Manual chat + tool-call inspector</p>
+      </div>
+      <div class="meta">
+        <span id="modeBadge" class="badge">…</span>
+        <a href="/docs" target="_blank" rel="noreferrer">API docs</a>
+      </div>
+    </header>
+
+    <section class="controls">
+      <label>
+        Authenticated user
+        <select id="userId">
+          <option value="123">123 — Ana (owner of order 456)</option>
+          <option value="999">999 — Other user (owner of 789)</option>
+        </select>
+      </label>
+      <label>
+        Fault injection
+        <select id="fault">
+          <option value="none">none</option>
+          <option value="tool_500">tool_500</option>
+          <option value="fake_tool_response">fake_tool_response</option>
+        </select>
+      </label>
+      <button type="button" id="resetBtn" class="ghost">Нулирай mock данните</button>
+    </section>
+
+    <section class="scenarios">
+      <p class="label">Quick scenarios</p>
+      <div class="chips" id="chips"></div>
+    </section>
+
+    <main class="chat-layout">
+      <div id="thread" class="thread" aria-live="polite"></div>
+
+      <form id="chatForm" class="composer">
+        <textarea
+          id="message"
+          rows="3"
+          placeholder="Напр. Къде е поръчката ми 456?"
+          required
+        ></textarea>
+        <button type="submit" id="sendBtn">Send</button>
+      </form>
+    </main>
+  </div>
+
+  <script src="/static/app.js?v=2"></script>
+</body>
+</html>
