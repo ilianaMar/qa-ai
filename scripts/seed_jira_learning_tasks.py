@@ -459,6 +459,160 @@ TASKS: list[dict[str, Any]] = [
 ]
 
 
+EXTRA_TASKS: list[dict[str, Any]] = [
+    _story(
+        summary="[QA-AI] Eval harness for nondeterministic OpenAI mode",
+        goal=(
+            "Build a small evaluation harness so AGENT_MODE=openai can be tested without "
+            "brittle exact-string/tool-order asserts that flake every run."
+        ),
+        why=(
+            "Local mode is deterministic (great for CI). OpenAI mode is nondeterministic: "
+            "the model may phrase replies differently or occasionally pick a different tool. "
+            "An eval harness scores behavior over N runs (pass rate, tool allowed-set, "
+            "no-leak checks) instead of a single brittle equality."
+        ),
+        in_repo=[
+            "AGENT_MODE=local vs openai in .env / app/config.py",
+            "Playwright API suite in api/tests (currently assumes local)",
+            "app/agent/runner.py — run_openai_agent path",
+        ],
+        do_this=[
+            "Pick 5–8 golden prompts (order status, list orders, foreign order deny, ticket, injection)",
+            "For each prompt define soft expectations: required tools OR allowed tool set; forbidden reply tokens; must/deny flags",
+            "Run each prompt N times (e.g. 5) in openai mode; record pass/fail per criterion",
+            "Report pass-rate (e.g. ≥4/5) instead of asserting 100% exact tool order",
+            "Keep local mode suite as hard regression; mark openai evals as optional/nightly",
+        ],
+        acceptance=[
+            "Documented eval rubric (criteria per prompt)",
+            "Script or npm/pytest command that runs N openai trials and prints a score table",
+            "At least one prompt proves flaky exact assert would fail but soft rubric still passes",
+            "CI stays green on local mode without OpenAI key",
+        ],
+        borrow_ideas=[
+            "OpenAI Evals / promptfoo / DeepEval patterns — score dimensions, not only pass/fail",
+            "Separate 'contract tests' (local) from 'behavioral evals' (openai)",
+        ],
+        resources=[
+            (
+                "OpenAI Evals overview",
+                "https://github.com/openai/evals",
+            ),
+            (
+                "promptfoo — LLM eval framework",
+                "https://www.promptfoo.dev/docs/intro/",
+            ),
+            (
+                "Hugging Face — LLM Evaluation Guide",
+                "https://huggingface.co/docs/evaluate/index",
+            ),
+        ],
+    ),
+    _story(
+        summary="[QA-AI] OWASP LLM security deep-dive",
+        goal=(
+            "Map OWASP Top 10 for LLM Applications onto this playground and add concrete "
+            "test cases / mitigations for the highest-risk items."
+        ),
+        why=(
+            "AI QA without security context misses the expensive bugs: prompt injection → "
+            "tool abuse, data leakage, over-permissioned tools, insecure output handling. "
+            "Employers hiring AI QA expect OWASP LLM vocabulary + demos."
+        ),
+        in_repo=[
+            "Existing injection tests (api/tests + local_planner refuse path)",
+            "AuthZ guards in app/agent/tools.py",
+            "Fault injection fake_tool_response",
+            "System prompt rules in app/agent/i18n.py",
+        ],
+        do_this=[
+            "Read OWASP LLM Top 10 and make a table: risk → how it appears in qa-ai → current coverage → gap",
+            "Focus first on: LLM01 Prompt Injection, LLM02 Insecure Output Handling, LLM06 Sensitive Info Disclosure, LLM08 Excessive Agency",
+            "Add ≥3 new attack cases (BG+EN) that try tool abuse or data leak",
+            "Document mitigations already in code (AuthZ in tools, not only prompt) vs still missing",
+            "Optional: short threat model one-pager for the support agent",
+        ],
+        acceptance=[
+            "OWASP LLM mapping doc (markdown in repo or Jira comment)",
+            "New automated tests for at least 3 security scenarios",
+            "Clear statement: which controls are in code vs prompt-only",
+            "No secrets from .env appear in replies or tool fake payloads trusted as truth",
+        ],
+        borrow_ideas=[
+            "Treat tool arguments like an API: validate/authorize every call",
+            "Never trust model output for security decisions — enforce in execute_tool",
+        ],
+        resources=[
+            (
+                "OWASP Top 10 for Large Language Model Applications",
+                "https://owasp.org/www-project-top-10-for-large-language-model-applications/",
+            ),
+            (
+                "OWASP LLM01: Prompt Injection",
+                "https://genai.owasp.org/llmrisk/llm01-prompt-injection/",
+            ),
+            (
+                "Learn Prompting — Prompt Hacking",
+                "https://learnprompting.org/docs/prompt_hacking/introduction",
+            ),
+            (
+                "NIST AI Risk Management Framework",
+                "https://www.nist.gov/itl/ai-risk-management-framework",
+            ),
+        ],
+    ),
+    _story(
+        summary="[QA-AI] Case study / portfolio writeup",
+        goal=(
+            "Write a short public case study that turns this repo into interview-ready "
+            "portfolio proof: problem → approach → bugs found → what you assert."
+        ),
+        why=(
+            "Hiring managers rarely clone repos first. A 1–2 page writeup + demo link "
+            "converts 'I know Playwright' into 'I know how to test AI agents'."
+        ),
+        in_repo=[
+            "README.md — expand with test matrix / architecture diagram",
+            "api/tests + e2e/tests — cite concrete examples",
+            "GitHub repo https://github.com/ilianaMar/qa-ai",
+            "Optional: short screen recording of UI tool inspector + failing fault case",
+        ],
+        do_this=[
+            "Draft structure: Context → Architecture (User→Tool→Reply) → What I test → Example bug/finding → Stack → Next steps",
+            "Include 1 AuthZ example and 1 hallucination/fault example with before/after asserts",
+            "Add a prompt → expected tools matrix to README",
+            "Publish as README section and/or LinkedIn/Notion/GitHub Pages post",
+            "Optional: 60–90s demo video showing tool_calls inspector",
+        ],
+        acceptance=[
+            "Written case study (≥400 words) linked from README",
+            "Contains architecture sketch + 2 concrete test examples with expected tools",
+            "States clearly: local mode for CI, openai for eval/demo",
+            "No secrets (.env / tokens) in the writeup or screenshots",
+        ],
+        borrow_ideas=[
+            "Title angle: 'How I test an AI support agent beyond reply text'",
+            "Show a failing fake_tool_response case — very memorable in interviews",
+        ],
+        resources=[
+            (
+                "Writing a technical case study (guidance)",
+                "https://developers.google.com/tech-writing",
+            ),
+            (
+                "Playwright trace viewer — good for demo screenshots",
+                "https://playwright.dev/docs/trace-viewer",
+            ),
+            (
+                "GitHub profile README / project README tips",
+                "https://docs.github.com/en/get-started/writing-on-github",
+            ),
+        ],
+    ),
+]
+
+
 # Existing seeded keys from first run (update in place — no duplicates)
 DEFAULT_ISSUE_KEYS = [
     "KAN-1",
@@ -477,7 +631,12 @@ def main() -> None:
     parser.add_argument(
         "--create",
         action="store_true",
-        help="Create new issues instead of updating KAN-1..KAN-8",
+        help="Create brand-new issues for ALL TASKS (duplicates if already seeded)",
+    )
+    parser.add_argument(
+        "--create-extra",
+        action="store_true",
+        help="Create only EXTRA_TASKS (eval harness, OWASP LLM, portfolio writeup)",
     )
     args = parser.parse_args()
 
@@ -493,7 +652,16 @@ def main() -> None:
 
     labels = ["qa-ai", "learning-plan"]
 
-    if args.create:
+    if args.create_extra:
+        print(f"Creating {len(EXTRA_TASKS)} extra issues in project {settings.jira_project_key} ...")
+        for task in EXTRA_TASKS:
+            issue = create_issue(
+                summary=task["summary"],
+                description=task["description"],
+                labels=labels,
+            )
+            print(f"  ✓ {issue['key']}  {issue.get('url')}")
+    elif args.create:
         print(f"Creating {len(TASKS)} issues in project {settings.jira_project_key} ...")
         for task in TASKS:
             issue = create_issue(
